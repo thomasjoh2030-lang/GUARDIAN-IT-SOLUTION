@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account registration and system clearance credentials.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user credentials identifier" },
+        "email": { "type": "string", "description": "Electronic mail address identifier" },
+        "username": { "type": "string", "description": "Public identifier username" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Clearance permission level" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "isBanned": { "type": "boolean", "description": "Audit ban status status flag" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Temporal record creation date" }
+      },
+      "required": ["uid", "email", "username", "role", "createdAt"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Customizable cyber IT service offering configuration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Service index identifier" },
+        "title": { "type": "string", "description": "Primary service title" },
+        "description": { "type": "string", "description": "Short system description summary" },
+        "longDescription": { "type": "string", "description": "Cinematic visual details description" },
+        "price": { "type": "number", "description": "Cost rate of service" },
+        "timeframe": { "type": "string", "description": "Execution project frame" },
+        "icon": { "type": "string", "description": "Lucide representative vector name" },
+        "fields": { "type": "array", "description": "Input validation fields list" },
+        "enabled": { "type": "boolean", "description": "Is this service listed flag" },
+        "isComingSoon": { "type": "boolean" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "title", "description", "longDescription", "price", "timeframe", "icon", "fields", "enabled"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Service engagement manual payment audit transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Transaction registration index" },
+        "serviceId": { "type": "string", "description": "Relative offering identifier" },
+        "serviceTitle": { "type": "string", "description": "Offering catalog title" },
+        "price": { "type": "number", "description": "Paid cost rate" },
+        "userId": { "type": "string", "description": "Associated user ID credentials" },
+        "userEmail": { "type": "string", "description": "Associated email credentials for dispatch" },
+        "formData": { "type": "object", "description": "Submitted customized requirements map" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation point in time" },
+        "status": { "type": "string", "enum": ["pending", "processing", "approved", "rejected"], "description": "Manual auditing workflow position" },
+        "rejectionReason": { "type": "string", "description": "Rejection validation failure brief" },
+        "paymentProofName": { "type": "string" },
+        "paymentProofEmail": { "type": "string" },
+        "paymentProofPhone": { "type": "string" },
+        "paymentProofTxId": { "type": "string" },
+        "paymentProofScreenshot": { "type": "string" },
+        "paymentVerifiedAt": { "type": "string" }
+      },
+      "required": ["id", "serviceId", "serviceTitle", "price", "userId", "userEmail", "formData", "createdAt", "status"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Incident support ticket for operational escalations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Ticket unique key" },
+        "userId": { "type": "string", "description": "Client user credentials author ID" },
+        "userEmail": { "type": "string", "description": "Sender secure email" },
+        "subject": { "type": "string", "description": "Brief issue summary header" },
+        "messages": { "type": "array", "description": "Thread logs list" },
+        "status": { "type": "string", "enum": ["open", "closed"], "description": "Resolution clearance state" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userEmail", "subject", "messages", "status", "createdAt", "updatedAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Client alert dispatch notices details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["success", "danger", "info"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "createdAt", "read"]
+    },
+    "ThemeConfig": {
+      "title": "ThemeConfig",
+      "description": "System color branding and payment destination configurations.",
+      "type": "object",
+      "properties": {
+        "primaryColor": { "type": "string" },
+        "glowColor": { "type": "string" },
+        "headlineText": { "type": "string" },
+        "subheadlineText": { "type": "string" },
+        "manualPaymentInstructions": { "type": "string" },
+        "paymentNumber": { "type": "string" },
+        "paymentNumberName": { "type": "string" },
+        "isComingSoonEnabled": { "type": "boolean" },
+        "opensAt": { "type": "string" },
+        "isMaintenanceEnabled": { "type": "boolean" }
+      },
+      "required": [
+        "primaryColor",
+        "glowColor",
+        "headlineText",
+        "subheadlineText",
+        "manualPaymentInstructions",
+        "paymentNumber",
+        "paymentNumberName"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Operational user client account profile registrations."
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Catalog of operational IT custom service constructor offerings."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Registry of order auditing manual transaction payments records."
+    },
+    "/tickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "Customer support incident escalation tickets register."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Client notification alert dispatcher register."
+    },
+    "/theme/global": {
+      "schema": "ThemeConfig",
+      "description": "Global custom website styles branding dynamic overrides configurations."
+    }
+  }
+}

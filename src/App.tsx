@@ -20,6 +20,35 @@ import LandingPage from './components/LandingPage';
 import UserDashboard from './components/UserDashboard';
 import AdminDashboard from './components/AdminDashboard';
 
+import { initializeApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  deleteDoc, 
+  collection, 
+  getDocs,
+  getDocFromServer
+} from 'firebase/firestore';
+import firebaseConfig from '../firebase-applet-config.json';
+
+// Initialize Firebase SDK
+const fApp = initializeApp(firebaseConfig);
+export const fDb = getFirestore(fApp, firebaseConfig.firestoreDatabaseId);
+
+// Validate and test initial connection
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(fDb, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('offline')) {
+      console.error("Please check your Firebase configuration or network.");
+    }
+  }
+}
+testConnection();
+
 // Client-Side Full-Stack Database Emulator (for robust Vercel deployments and fallback resilience)
 const getLocalDB = () => {
   const defaultServices: Service[] = [
@@ -145,9 +174,233 @@ const saveLocalDB = (db: any) => {
   localStorage.setItem("guardian_client_db", JSON.stringify(db));
 };
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: any;
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: localStorage.getItem("guardian_token") || "anonymous",
+      email: localStorage.getItem("guardian_user") ? JSON.parse(localStorage.getItem("guardian_user")!).email : "anonymous",
+      emailVerified: true
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+const getFirestoreDB = async (): Promise<any> => {
+  try {
+    const usersSnap = await getDocs(collection(fDb, "users"));
+    const usersSet: UserProfile[] = [];
+    usersSnap.forEach(d => {
+      usersSet.push(d.data() as UserProfile);
+    });
+
+    const servicesSnap = await getDocs(collection(fDb, "services"));
+    let servicesSet: Service[] = [];
+    servicesSnap.forEach(d => {
+      servicesSet.push(d.data() as Service);
+    });
+
+    const ordersSnap = await getDocs(collection(fDb, "orders"));
+    const ordersSet: Order[] = [];
+    ordersSnap.forEach(d => {
+      ordersSet.push(d.data() as Order);
+    });
+
+    const ticketsSnap = await getDocs(collection(fDb, "tickets"));
+    const ticketsSet: SupportTicket[] = [];
+    ticketsSnap.forEach(d => {
+      ticketsSet.push(d.data() as SupportTicket);
+    });
+
+    const notifsSnap = await getDocs(collection(fDb, "notifications"));
+    const notifsSet: Notification[] = [];
+    notifsSnap.forEach(d => {
+      notifsSet.push(d.data() as Notification);
+    });
+
+    const themeDocRef = doc(fDb, "theme", "global");
+    const themeSnap = await getDoc(themeDocRef);
+    let themeSet: ThemeConfig;
+    if (themeSnap.exists()) {
+      themeSet = themeSnap.data() as ThemeConfig;
+    } else {
+      themeSet = {
+        primaryColor: "violet",
+        glowColor: "cyan",
+        headlineText: "GUARDIAN INTERNET",
+        subheadlineText: "ELITE CYBER OPS, ADVANCED DIGITAL SERVICES & IT ECOSYSTEMS",
+        manualPaymentInstructions: "To fulfill this order, please submit your payment to our secure manual verification vault on Bitcoin or M-Pesa. Once the payment proof is uploaded, our elite technicians will contact you.",
+        paymentNumber: "BTC: bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+        paymentNumberName: "Bitcoin Premium Vault Account",
+        isComingSoonEnabled: false,
+        opensAt: "",
+        isMaintenanceEnabled: false
+      };
+      await setDoc(themeDocRef, themeSet);
+    }
+
+    // Seed default services if empty
+    if (servicesSet.length === 0) {
+      const defaultServicesList: Service[] = [
+        {
+          id: "social-media",
+          title: "Social Media Management",
+          description: "Elite brand visibility, organic scaling & viral visual operations.",
+          longDescription: "Our special ops social systems secure your organic reach, design high-converting visual architectures, and execute hyper-target content deployment across TikTok, Instagram, and X for maximum brand prestige.",
+          price: 299,
+          timeframe: "Monthly Retainer",
+          icon: "Share2",
+          enabled: true,
+          fields: [
+            { id: "platform", type: "text", label: "Target Platforms (e.g., Tik Tok, IG)", required: true, placeholder: "Instagram, TikTok" },
+            { id: "handle", type: "text", label: "Current Digital Handles", required: true, placeholder: "@yourbrand" },
+            { id: "goals", type: "notes", label: "Key Campaign Objectives", required: true, placeholder: "Increase engagement & premium content aesthetic" }
+          ]
+        },
+        {
+          id: "tiktok-verify",
+          title: "TikTok Verification Guidance",
+          description: "Direct elite pathing to secure verified blue insignia credentials.",
+          longDescription: "A curated strategy bypasses standard automated rejections. We manage PR placements, brand credibility alignments, and direct media portal submissions to unlock your blue check.",
+          price: 149,
+          timeframe: "3 - 7 Days",
+          icon: "ShieldCheck",
+          enabled: true,
+          fields: [
+            { id: "username", type: "text", label: "TikTok Account Handle", required: true, placeholder: "@verified_user" },
+            { id: "press", type: "notes", label: "Existing Press Links & Media Mentions", required: false, placeholder: "Forbes, TechCrunch links if any..." },
+            { id: "verification_screenshot", type: "image", label: "Attach Account Settings Screenshot", required: true }
+          ]
+        },
+        {
+          id: "web-dev",
+          title: "Website Design & Development",
+          description: "Stripe-class web software, luxury interfaces & robust codebases.",
+          longDescription: "No-template architectural designs. We construct hyper-immersive react codebases, optimized database environments, and lightning-fast animations tuned to elite aesthetic standards.",
+          price: 1499,
+          timeframe: "14 - 21 Days",
+          icon: "Cpu",
+          enabled: true,
+          fields: [
+            { id: "site_desc", type: "notes", label: "Project Brief & Core Functionality", required: true, placeholder: "Explain your startup or business system..." },
+            { id: "design_style", type: "text", label: "Aesthetic References (e.g., Tesla Minimal)", required: true, placeholder: "Apple-level minimal dark & glassmorphism" },
+            { id: "budget_scope", type: "number", label: "Project Scaling Phase budget", required: false, placeholder: "1500" }
+          ]
+        },
+        {
+          id: "mobile-dev",
+          title: "Mobile App Development",
+          description: "Immersive standalone iOS & Android engines with seamless synchronization.",
+          longDescription: "We build native and cross-platform applications combining flawless screen tracking, offline caching, and cinematic motion effects to retain client attention.",
+          price: 2499,
+          timeframe: "21 - 35 Days",
+          icon: "Smartphone",
+          enabled: true,
+          fields: [
+            { id: "app_purpose", type: "notes", label: "Core App Concept & Workflows", required: true, placeholder: "Uber for IT services..." },
+            { id: "preferred_platform", type: "text", label: "Launch Strategy (iOS / Android / Both)", required: true, placeholder: "Both Platforms" }
+          ]
+        },
+        {
+          id: "graphic-design",
+          title: "Graphic Design & Branding",
+          description: "High-fashion identity structures, luxury brand books & cinematic systems.",
+          longDescription: "Synthesize a timeless logo, premium typography systems, custom brand style guides, and ultra-high-definition vector marketing arrays.",
+          price: 399,
+          timeframe: "5 - 7 Days",
+          icon: "Layers",
+          enabled: true,
+          fields: [
+            { id: "brand_name", type: "text", label: "Brand Name & Concept", required: true, placeholder: "Aegis Security" },
+            { id: "brand_vibe", type: "text", label: "Desired Vibe Color Palette", required: true, placeholder: "Deep purple, gold and matte black" }
+          ]
+        },
+        {
+          id: "video-editing",
+          title: "Video Editing",
+          description: "High-retention social ads, mini-documentaries, and commercial video formats.",
+          longDescription: "Professional video engineering focusing on frame-by-frame color correction, premium kinetic typography, sound design, and retention hooks to maximize viewer stickiness.",
+          price: 199,
+          timeframe: "2 - 4 Days",
+          icon: "Video",
+          enabled: true,
+          fields: [
+            { id: "video_duration", type: "number", label: "Estimated Length (in Seconds)", required: true, placeholder: "60" },
+            { id: "footage_link", type: "text", label: "Link to Raw Footage (Google Drive / Dropbox)", required: true, placeholder: "https://drive.google.com/..." }
+          ]
+        },
+        {
+          id: "account-recovery",
+          title: "Account Recovery & Security Setup",
+          description: "Advanced asset protection, incident response, & system hardening.",
+          longDescription: "Locked out of critical accounts? Secure our digital operations division. We analyze logs, construct incident mitigation files, and deploy biometric hardware-key security overrides.",
+          price: 349,
+          timeframe: "1 - 3 Days",
+          icon: "Lock",
+          enabled: true,
+          fields: [
+            { id: "compromised_platform", type: "text", label: "Target Account/Platform", required: true, placeholder: "Instagram / Google Business" },
+            { id: "username_recovery", type: "text", label: "Compromised Account ID / Username", required: true, placeholder: "@mybusiness_old" },
+            { id: "ownership_proof", type: "notes", label: "Account Ownership Details & Historical Logs", required: true, placeholder: "Provide original signup date or phone number..." }
+          ]
+        },
+        {
+          id: "ai-prompt",
+          title: "AI Prompt Engineering",
+          description: "Enterprise system prompt crafting & orchestration tuning.",
+          longDescription: "Maximize utility from modern models (Gemini-3.5-pro, GPT-4o). We engineer robust system directives, format constraints, and safety guidelines to reduce hallucination and bypass prompt-injection vectors.",
+          price: 99,
+          timeframe: "1 - 2 Days",
+          icon: "Terminal",
+          enabled: true,
+          fields: [
+            { id: "ai_goal", type: "notes", label: "Operational goals for the LLM pipeline", required: true, placeholder: "SaaS automation, Customer support filtering..." },
+            { id: "target_model", type: "text", label: "Primary Model Choice (e.g. Gemini 3.5)", required: true, placeholder: "Gemini 3.5 Flash" }
+          ]
+        }
+      ];
+      for (const s of defaultServicesList) {
+        await setDoc(doc(fDb, "services", s.id), s);
+      }
+      servicesSet = defaultServicesList;
+    }
+
+    return {
+      users: usersSet,
+      services: servicesSet,
+      orders: ordersSet,
+      tickets: ticketsSet,
+      notifications: servicesSet.length > 0 ? (notifsSet || []) : [],
+      theme: themeSet
+    };
+  } catch (error) {
+    console.warn("Firestore connection error in getFirestoreDB:", error);
+    return getLocalDB();
+  }
+};
+
 const handleClientFallback = async (url: string, options?: RequestInit): Promise<Response> => {
   console.log("🔒 Running client-side database fallback:", url);
-  const db = getLocalDB();
+  const db = await getFirestoreDB();
   const path = url.split("?")[0];
   const method = options?.method || "GET";
   const body = options?.body ? JSON.parse(options.body as string) : {};
@@ -160,7 +413,7 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   if (path === "/api/auth/register" && method === "POST") {
     const { email, password, username } = body;
     const formattedEmail = String(email || "").toLowerCase().trim();
-    const existing = db.users.find(u => u.email.toLowerCase() === formattedEmail);
+    const existing = db.users.find((u: any) => u.email.toLowerCase() === formattedEmail);
     if (existing) {
       status = 400;
       error = "An account with this email already exists.";
@@ -176,18 +429,29 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
         password: finalPassword,
         createdAt: new Date().toISOString()
       };
-      db.users.push(newUser);
-      db.notifications.push({
+      
+      const notif = {
         id: "notif_" + Math.random().toString(36).substr(2, 9),
         userId: newUser.uid,
         title: "Welcome to Guardian Internet!",
         message: `Your account is secure. Welcome, Agent ${newUser.username}. Explore our cyber solutions now.`,
-        type: "success",
+        type: "success" as const,
         createdAt: new Date().toISOString(),
         read: false
-      });
-      saveLocalDB(db);
-      data = { token: "token_" + newUser.uid, user: newUser };
+      };
+
+      try {
+        await setDoc(doc(fDb, "users", newUser.uid), newUser);
+        await setDoc(doc(fDb, "notifications", notif.id), notif);
+        db.users.push(newUser);
+        db.notifications.push(notif);
+        saveLocalDB(db);
+        data = { token: "token_" + newUser.uid, user: newUser };
+      } catch (e) {
+        status = 500;
+        error = "Failed to sync credentials database.";
+        handleFirestoreError(e, OperationType.WRITE, "users/" + newUser.uid);
+      }
     }
   }
   // 2. AUTH LOGIN
@@ -207,7 +471,7 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
     }
 
     if (status === 200) {
-      let user = db.users.find(u => u.email.toLowerCase() === formattedEmail);
+      let user = db.users.find((u: any) => u.email.toLowerCase() === formattedEmail);
       if (!user && isAdminUser) {
         user = {
           uid: "admin_thomas",
@@ -217,8 +481,13 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
           password: "203040",
           createdAt: new Date().toISOString()
         };
-        db.users.push(user);
-        saveLocalDB(db);
+        try {
+          await setDoc(doc(fDb, "users", user.uid), user);
+          db.users.push(user);
+          saveLocalDB(db);
+        } catch (e) {
+          console.error("Failed to seed admin user to firestore:", e);
+        }
       }
 
       if (!user) {
@@ -248,9 +517,17 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   }
   // 4. THEME POST/UPDATE
   else if (path === "/api/theme" && method === "POST") {
-    db.theme = { ...db.theme, ...body };
-    saveLocalDB(db);
-    data = db.theme;
+    const updatedTheme = { ...db.theme, ...body };
+    try {
+      await setDoc(doc(fDb, "theme", "global"), updatedTheme);
+      db.theme = updatedTheme;
+      saveLocalDB(db);
+      data = db.theme;
+    } catch (e) {
+      status = 500;
+      error = "Theme sync error.";
+      handleFirestoreError(e, OperationType.WRITE, "theme/global");
+    }
   }
   // 5. SERVICES GET
   else if (path === "/api/services" && method === "GET") {
@@ -264,18 +541,33 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
       price: Number(body.price || 199),
       enabled: true
     };
-    db.services.push(newService);
-    saveLocalDB(db);
-    data = newService;
+    try {
+      await setDoc(doc(fDb, "services", newService.id), newService);
+      db.services.push(newService);
+      saveLocalDB(db);
+      data = newService;
+    } catch (e) {
+      status = 500;
+      error = "Service creation sync failed.";
+      handleFirestoreError(e, OperationType.WRITE, "services/" + newService.id);
+    }
   }
   // 7. SERVICES PUT
   else if (path.startsWith("/api/services/") && method === "PUT") {
-    const id = path.split("/").pop();
-    const idx = db.services.findIndex(s => s.id === id);
+    const id = path.split("/").pop() || "";
+    const idx = db.services.findIndex((s: any) => s.id === id);
     if (idx !== -1) {
-      db.services[idx] = { ...db.services[idx], ...body };
-      saveLocalDB(db);
-      data = db.services[idx];
+      const updatedService = { ...db.services[idx], ...body };
+      try {
+        await setDoc(doc(fDb, "services", id), updatedService);
+        db.services[idx] = updatedService;
+        saveLocalDB(db);
+        data = db.services[idx];
+      } catch (e) {
+        status = 500;
+        error = "Service update sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "services/" + id);
+      }
     } else {
       status = 404;
       error = "Service not found.";
@@ -283,21 +575,28 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   }
   // 8. SERVICES DELETE
   else if (path.startsWith("/api/services/") && method === "DELETE") {
-    const id = path.split("/").pop();
-    db.services = db.services.filter(s => s.id !== id);
-    saveLocalDB(db);
-    data = { success: true, id };
+    const id = path.split("/").pop() || "";
+    try {
+      await deleteDoc(doc(fDb, "services", id));
+      db.services = db.services.filter((s: any) => s.id !== id);
+      saveLocalDB(db);
+      data = { success: true, id };
+    } catch (e) {
+      status = 500;
+      error = "Service delete sync failed.";
+      handleFirestoreError(e, OperationType.DELETE, "services/" + id);
+    }
   }
   // 9. ORDERS GET
   else if (path === "/api/orders" && method === "GET") {
-    const query = url.split("?")[1] || "";
-    const params = new URLSearchParams(query);
+    const queryStr = url.split("?")[1] || "";
+    const params = new URLSearchParams(queryStr);
     const userId = params.get("userId");
     const role = params.get("role");
     if (role === "admin") {
       data = db.orders;
     } else {
-      data = db.orders.filter(o => o.userId === userId);
+      data = db.orders.filter((o: any) => o.userId === userId);
     }
   }
   // 10. ORDERS POST
@@ -309,32 +608,55 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
       status: "pending",
       createdAt: new Date().toISOString()
     };
-    db.orders.push(newOrder);
-    db.notifications.push({
+    
+    const orderNotif = {
       id: "notif_" + Math.random().toString(36).substr(2, 9),
       userId: body.userId,
       title: "Order Submitted - Pending Proof",
       message: `Your tactical request has been received. Please upload payment proof to start operations on ${body.serviceTitle}.`,
-      type: "info",
+      type: "info" as const,
       createdAt: new Date().toISOString(),
       read: false
-    });
-    saveLocalDB(db);
-    data = newOrder;
+    };
+
+    try {
+      await setDoc(doc(fDb, "orders", newOrder.id), newOrder);
+      await setDoc(doc(fDb, "notifications", orderNotif.id), orderNotif);
+      db.orders.push(newOrder);
+      db.notifications.push(orderNotif);
+      saveLocalDB(db);
+      data = newOrder;
+    } catch (e) {
+      status = 500;
+      error = "Order transaction sync failed.";
+      handleFirestoreError(e, OperationType.WRITE, "orders/" + newOrder.id);
+    }
   }
   // 11. ORDERS PAYMENT PROOF PUT
   else if (path.startsWith("/api/orders/") && path.endsWith("/payment") && method === "PUT") {
     const id = path.split("/")[3];
-    const order = db.orders.find(o => o.id === id);
+    const order = db.orders.find((o: any) => o.id === id);
     if (order) {
-      order.paymentProofName = body.name;
-      order.paymentProofEmail = body.email;
-      order.paymentProofPhone = body.phone;
-      order.paymentProofTxId = body.txId;
-      order.paymentProofScreenshot = body.screenshot;
-      order.status = "pending";
-      saveLocalDB(db);
-      data = order;
+      const updatedOrder = {
+        ...order,
+        paymentProofName: body.name,
+        paymentProofEmail: body.email,
+        paymentProofPhone: body.phone,
+        paymentProofTxId: body.txId,
+        paymentProofScreenshot: body.screenshot,
+        status: "pending" as const
+      };
+      try {
+        await setDoc(doc(fDb, "orders", id), updatedOrder);
+        const orderIdx = db.orders.findIndex((o: any) => o.id === id);
+        db.orders[orderIdx] = updatedOrder;
+        saveLocalDB(db);
+        data = updatedOrder;
+      } catch (e) {
+        status = 500;
+        error = "Payment proof upload sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "orders/" + id);
+      }
     } else {
       status = 404;
       error = "Order not found";
@@ -343,21 +665,37 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   // 12. ORDER CONTROLS (APPROVE, PROCESS, REJECT)
   else if (path.startsWith("/api/orders/") && path.endsWith("/approve") && method === "POST") {
     const id = path.split("/")[3];
-    const order = db.orders.find(o => o.id === id);
+    const order = db.orders.find((o: any) => o.id === id);
     if (order) {
-      order.status = "approved";
-      order.paymentVerifiedAt = new Date().toISOString();
-      db.notifications.push({
+      const updatedOrder = {
+        ...order,
+        status: "approved" as const,
+        paymentVerifiedAt: new Date().toISOString()
+      };
+      
+      const approveNotif = {
         id: "notif_" + Math.random().toString(36).substr(2, 9),
         userId: order.userId,
         title: "✅ Payment Vetted & Operation Live",
         message: `Your payment was successfully approved by Guardian operations. Our elite tech team is now executing ${order.serviceTitle}.`,
-        type: "success",
+        type: "success" as const,
         createdAt: new Date().toISOString(),
         read: false
-      });
-      saveLocalDB(db);
-      data = order;
+      };
+
+      try {
+        await setDoc(doc(fDb, "orders", id), updatedOrder);
+        await setDoc(doc(fDb, "notifications", approveNotif.id), approveNotif);
+        const orderIdx = db.orders.findIndex((o: any) => o.id === id);
+        db.orders[orderIdx] = updatedOrder;
+        db.notifications.push(approveNotif);
+        saveLocalDB(db);
+        data = updatedOrder;
+      } catch (e) {
+        status = 500;
+        error = "Order approval sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "orders/" + id);
+      }
     } else {
       status = 404;
       error = "Order not found";
@@ -365,60 +703,106 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   }
   else if (path.startsWith("/api/orders/") && path.endsWith("/process") && method === "POST") {
     const id = path.split("/")[3];
-    const order = db.orders.find(o => o.id === id);
+    const order = db.orders.find((o: any) => o.id === id);
     if (order) {
-      order.status = "processing";
-      db.notifications.push({
+      const updatedOrder = {
+        ...order,
+        status: "processing" as const
+      };
+
+      const processNotif = {
         id: "notif_" + Math.random().toString(36).substr(2, 9),
         userId: order.userId,
         title: "⚙️ Package Processing Initiated",
         message: `The operations unit has vetted your documents and initiated actual deployment for: ${order.serviceTitle}. Status: Processing.`,
-        type: "info",
+        type: "info" as const,
         createdAt: new Date().toISOString(),
         read: false
-      });
-      saveLocalDB(db);
-      data = order;
+      };
+
+      try {
+        await setDoc(doc(fDb, "orders", id), updatedOrder);
+        await setDoc(doc(fDb, "notifications", processNotif.id), processNotif);
+        const orderIdx = db.orders.findIndex((o: any) => o.id === id);
+        db.orders[orderIdx] = updatedOrder;
+        db.notifications.push(processNotif);
+        saveLocalDB(db);
+        data = updatedOrder;
+      } catch (e) {
+        status = 500;
+        error = "Order status sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "orders/" + id);
+      }
     } else {
       status = 404;
       error = "Order not found";
     }
   }
   else if (path === "/api/orders/approve-all" && method === "POST") {
-    const pendings = db.orders.filter(o => o.status === "pending");
-    pendings.forEach(order => {
-      order.status = "approved";
-      order.paymentVerifiedAt = new Date().toISOString();
-      db.notifications.push({
-        id: "notif_" + Math.random().toString(36).substr(2, 9),
-        userId: order.userId,
-        title: "✅ Payment Vetted & Operation Live",
-        message: `Your payment was successfully approved by Guardian operations. Our elite tech team is now executing ${order.serviceTitle}.`,
-        type: "success",
-        createdAt: new Date().toISOString(),
-        read: false
-      });
-    });
-    saveLocalDB(db);
-    data = { success: true, count: pendings.length };
+    const pendings = db.orders.filter((o: any) => o.status === "pending");
+    try {
+      for (const order of pendings) {
+        const updatedOrder = {
+          ...order,
+          status: "approved" as const,
+          paymentVerifiedAt: new Date().toISOString()
+        };
+        const approveNotif = {
+          id: "notif_" + Math.random().toString(36).substr(2, 9),
+          userId: order.userId,
+          title: "✅ Payment Vetted & Operation Live",
+          message: `Your payment was successfully approved by Guardian operations. Our elite tech team is now executing ${order.serviceTitle}.`,
+          type: "success" as const,
+          createdAt: new Date().toISOString(),
+          read: false
+        };
+        await setDoc(doc(fDb, "orders", order.id), updatedOrder);
+        await setDoc(doc(fDb, "notifications", approveNotif.id), approveNotif);
+        const orderIdx = db.orders.findIndex((o: any) => o.id === order.id);
+        if (orderIdx !== -1) db.orders[orderIdx] = updatedOrder;
+        db.notifications.push(approveNotif);
+      }
+      saveLocalDB(db);
+      data = { success: true, count: pendings.length };
+    } catch (e) {
+      status = 500;
+      error = "Approve all sync failed.";
+      handleFirestoreError(e, OperationType.WRITE, "orders/approve-all");
+    }
   }
   else if (path.startsWith("/api/orders/") && path.endsWith("/reject") && method === "POST") {
     const id = path.split("/")[3];
-    const order = db.orders.find(o => o.id === id);
+    const order = db.orders.find((o: any) => o.id === id);
     if (order) {
-      order.status = "rejected";
-      order.rejectionReason = body.reason || "Payment validation failed.";
-      db.notifications.push({
+      const updatedOrder = {
+        ...order,
+        status: "rejected" as const,
+        rejectionReason: body.reason || "Payment validation failed."
+      };
+      
+      const rejectNotif = {
         id: "notif_" + Math.random().toString(36).substr(2, 9),
         userId: order.userId,
         title: "❌ Payment Validation Rejected",
-        message: `Your payment validation request was rejected: "${order.rejectionReason}". Correct details or contact desk.`,
-        type: "danger",
+        message: `Your payment validation request was rejected: "${updatedOrder.rejectionReason}". Correct details or contact desk.`,
+        type: "danger" as const,
         createdAt: new Date().toISOString(),
         read: false
-      });
-      saveLocalDB(db);
-      data = order;
+      };
+
+      try {
+        await setDoc(doc(fDb, "orders", id), updatedOrder);
+        await setDoc(doc(fDb, "notifications", rejectNotif.id), rejectNotif);
+        const orderIdx = db.orders.findIndex((o: any) => o.id === id);
+        db.orders[orderIdx] = updatedOrder;
+        db.notifications.push(rejectNotif);
+        saveLocalDB(db);
+        data = updatedOrder;
+      } catch (e) {
+        status = 500;
+        error = "Order reject sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "orders/" + id);
+      }
     } else {
       status = 404;
       error = "Order not found";
@@ -426,14 +810,14 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   }
   // 13. TICKETS (GET, POST, REPLY)
   else if (path === "/api/tickets" && method === "GET") {
-    const query = url.split("?")[1] || "";
-    const params = new URLSearchParams(query);
+    const queryStr = url.split("?")[1] || "";
+    const params = new URLSearchParams(queryStr);
     const userId = params.get("userId");
     const role = params.get("role");
     if (role === "admin") {
       data = db.tickets;
     } else {
-      data = db.tickets.filter(t => t.userId === userId);
+      data = db.tickets.filter((t: any) => t.userId === userId);
     }
   }
   else if (path === "/api/tickets" && method === "POST") {
@@ -447,33 +831,62 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    db.tickets.push(newTicket);
-    saveLocalDB(db);
-    data = newTicket;
+    try {
+      await setDoc(doc(fDb, "tickets", newTicket.id), newTicket);
+      db.tickets.push(newTicket);
+      saveLocalDB(db);
+      data = newTicket;
+    } catch (e) {
+      status = 500;
+      error = "Support ticket sync failed.";
+      handleFirestoreError(e, OperationType.WRITE, "tickets/" + newTicket.id);
+    }
   }
   else if (path.startsWith("/api/tickets/") && path.endsWith("/reply") && method === "POST") {
     const id = path.split("/")[3];
-    const ticket = db.tickets.find(t => t.id === id);
+    const ticket = db.tickets.find((t: any) => t.id === id);
     if (ticket) {
-      ticket.messages.push({
-        sender: body.sender,
-        content: body.content,
-        createdAt: new Date().toISOString()
-      });
-      ticket.updatedAt = new Date().toISOString();
+      const updatedTicket = {
+        ...ticket,
+        messages: [
+          ...ticket.messages,
+          {
+            sender: body.sender,
+            content: body.content,
+            createdAt: new Date().toISOString()
+          }
+        ],
+        updatedAt: new Date().toISOString()
+      };
+
+      let replyNotif: any = null;
       if (body.sender === "admin") {
-        db.notifications.push({
+        replyNotif = {
           id: "notif_" + Math.random().toString(36).substr(2, 9),
           userId: ticket.userId,
           title: "💬 Admin Support Replied",
           message: `Support Desk replied to "${ticket.subject}". Check your Support messages room.`,
-          type: "success",
+          type: "success" as const,
           createdAt: new Date().toISOString(),
           read: false
-        });
+        };
       }
-      saveLocalDB(db);
-      data = ticket;
+
+      try {
+        await setDoc(doc(fDb, "tickets", id), updatedTicket);
+        if (replyNotif) {
+          await setDoc(doc(fDb, "notifications", replyNotif.id), replyNotif);
+          db.notifications.push(replyNotif);
+        }
+        const ticketIdx = db.tickets.findIndex((t: any) => t.id === id);
+        db.tickets[ticketIdx] = updatedTicket;
+        saveLocalDB(db);
+        data = updatedTicket;
+      } catch (e) {
+        status = 500;
+        error = "Support reply sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "tickets/" + id);
+      }
     } else {
       status = 404;
       error = "Ticket not found";
@@ -481,14 +894,14 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   }
   // 14. STATS GET
   else if (path === "/api/stats" && method === "GET") {
-    const approved = db.orders.filter(o => o.status === "approved");
-    const totalRev = approved.reduce((sum, o) => sum + o.price, 0);
+    const approved = db.orders.filter((o: any) => o.status === "approved");
+    const totalRev = approved.reduce((sum: number, o: any) => sum + o.price, 0);
     data = {
       totalRevenue: totalRev,
       totalOrders: db.orders.length,
       approvedOrders: approved.length,
-      pendingOrders: db.orders.filter(o => o.status === "pending").length,
-      rejectedOrders: db.orders.filter(o => o.status === "rejected").length,
+      pendingOrders: db.orders.filter((o: any) => o.status === "pending").length,
+      rejectedOrders: db.orders.filter((o: any) => o.status === "rejected").length,
       totalUsers: db.users.length
     };
   }
@@ -498,11 +911,20 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   }
   else if (path.startsWith("/api/users/") && path.endsWith("/ban") && method === "POST") {
     const uid = path.split("/")[3];
-    const u = db.users.find(usr => usr.uid === uid);
+    const u = db.users.find((usr: any) => usr.uid === uid);
     if (u) {
-      u.isBanned = body.isBanned;
-      saveLocalDB(db);
-      data = u;
+      const updatedUser = { ...u, isBanned: body.isBanned };
+      try {
+        await setDoc(doc(fDb, "users", uid), updatedUser);
+        const uIdx = db.users.findIndex((usr: any) => usr.uid === uid);
+        db.users[uIdx] = updatedUser;
+        saveLocalDB(db);
+        data = updatedUser;
+      } catch (e) {
+        status = 500;
+        error = "User ban status sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "users/" + uid);
+      }
     } else {
       status = 404;
       error = "User not found";
@@ -511,24 +933,44 @@ const handleClientFallback = async (url: string, options?: RequestInit): Promise
   // 16. NOTIFICATIONS
   else if (path.startsWith("/api/notifications/") && method === "GET") {
     const userId = path.split("/").pop();
-    data = db.notifications.filter(n => n.userId === userId).slice().reverse();
+    data = db.notifications.filter((n: any) => n.userId === userId).slice().reverse();
   }
   else if (path.startsWith("/api/notifications/") && path.endsWith("/read") && method === "POST") {
     const id = path.split("/")[3];
-    const n = db.notifications.find(notif => notif.id === id);
+    const n = db.notifications.find((notif: any) => notif.id === id);
     if (n) {
-      n.read = true;
-      saveLocalDB(db);
+      const updatedNotification = { ...n, read: true };
+      try {
+        await setDoc(doc(fDb, "notifications", id), updatedNotification);
+        const nIdx = db.notifications.findIndex((notif: any) => notif.id === id);
+        db.notifications[nIdx] = updatedNotification;
+        saveLocalDB(db);
+        data = { success: true };
+      } catch (e) {
+        status = 500;
+        error = "Notification update sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "notifications/" + id);
+      }
+    } else {
+      data = { success: true };
     }
-    data = { success: true };
   }
   // 17. TOGGLE ADMIN
   else if (path === "/api/users/toggle-admin" && method === "POST") {
-    const u = db.users.find(usr => usr.uid === body.userId);
+    const u = db.users.find((usr: any) => usr.uid === body.userId);
     if (u) {
-      u.role = u.role === "admin" ? "user" : "admin";
-      saveLocalDB(db);
-      data = { success: true, user: u };
+      const updatedUser = { ...u, role: u.role === "admin" ? ("user" as const) : ("admin" as const) };
+      try {
+        await setDoc(doc(fDb, "users", body.userId), updatedUser);
+        const uIdx = db.users.findIndex((usr: any) => usr.uid === body.userId);
+        db.users[uIdx] = updatedUser;
+        saveLocalDB(db);
+        data = { success: true, user: updatedUser };
+      } catch (e) {
+        status = 500;
+        error = "Privilege sync failed.";
+        handleFirestoreError(e, OperationType.WRITE, "users/" + body.userId);
+      }
     }
   }
 

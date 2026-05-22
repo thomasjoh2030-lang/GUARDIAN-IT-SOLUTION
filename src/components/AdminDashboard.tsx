@@ -788,253 +788,400 @@ export default function AdminDashboard({
                     <p className="text-xs text-gray-500 font-mono">No matching operations registered in database state.</p>
                   </div>
                 ) : (
-                  <div className="glass-panel border-white/5 rounded-2xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left font-sans">
-                        <thead>
-                          <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] font-mono text-gray-500 tracking-wider uppercase">
-                            <th className="p-4">Client profile & link</th>
-                            <th className="p-4">Package & Custom Form responses</th>
-                            <th className="p-4">Payment TxID</th>
-                            <th className="p-4">Screenshots</th>
-                            <th className="p-4">Op Status</th>
-                            <th className="p-4">Process Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-xs text-gray-300">
-                          {filteredOrders.slice().reverse().map(order => {
-                            const orderUser = users.find(u => u.uid === order.userId || u.email === order.userEmail);
-                            const formDataCount = order.formData ? Object.keys(order.formData).length : 0;
+                  <div className="space-y-4">
+                    {/* Mobile Cards (visible on screens smaller than md) */}
+                    <div className="grid grid-cols-1 gap-4 md:hidden">
+                      {filteredOrders.slice().reverse().map(order => {
+                        const orderUser = users.find(u => u.uid === order.userId || u.email === order.userEmail);
+                        const formDataCount = order.formData ? Object.keys(order.formData).length : 0;
+                        return (
+                          <div key={order.id} className="glass-panel p-4 rounded-xl border-white/5 space-y-3 relative text-left">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="block font-bold text-white uppercase tracking-tight text-xs">
+                                  {order.paymentProofName || orderUser?.username || "Guest Customer"}
+                                </span>
+                                <span className="block text-[10px] text-gray-450 font-mono truncate max-w-[180px]">{order.userEmail}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase tracking-wider ${
+                                order.status === 'approved' ? 'bg-green-500/10 text-green-400 border border-green-500/10' :
+                                order.status === 'processing' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/10' :
+                                order.status === 'rejected' ? 'bg-rose-500/10 text-rose-450 border border-rose-550/15' : 
+                                'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                              }`}>
+                                {order.status === 'approved' ? 'Successful' : order.status}
+                              </span>
+                            </div>
 
-                            return (
-                              <motion.tr 
-                                key={order.id} 
-                                layout
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                transition={{ duration: 0.25 }}
-                                className="hover:bg-white/[0.01] transition-colors"
-                              >
-                                
-                                {/* 1. Client profile & Link */}
-                                <td className="p-4">
-                                  <div className="space-y-1">
-                                    <span className="block font-bold text-white hover:text-purple-400 transition-colors uppercase tracking-tight">
-                                      {order.paymentProofName || orderUser?.username || "Guest Customer"}
-                                    </span>
-                                    <span className="block text-[10.5px] text-gray-450 font-mono truncate max-w-[150px]">{order.userEmail}</span>
-                                    {order.paymentProofPhone && (
-                                      <span className="block text-[10px] font-mono text-gray-500">{order.paymentProofPhone}</span>
-                                    )}
+                            <div className="border-t border-white/[0.03] pt-3 space-y-1.5">
+                              <div className="flex justify-between">
+                                <span className="text-[10px] text-gray-400 font-mono">Package:</span>
+                                <span className="font-bold text-purple-400 text-[11px]">{order.serviceTitle}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[10px] text-gray-400 font-mono">Price:</span>
+                                <span className="text-[10px] font-mono text-slate-300">{formatPrice(order.price)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[10px] text-gray-400 font-mono">Tx ID Ref:</span>
+                                <span className="text-[10px] font-mono text-white select-all bg-white/5 px-1.5 py-0.5 rounded border border-white/5">{order.paymentProofTxId || 'NO_HASH_CODE'}</span>
+                              </div>
+                            </div>
+
+                            {/* Custom form info fold */}
+                            {formDataCount > 0 && (
+                              <div className="p-2 rounded-lg bg-white/[0.01] border border-white/5 space-y-1 text-[10px]">
+                                <div className="text-[8.5px] font-mono text-gray-500 uppercase">Form inputs:</div>
+                                <div className="space-y-0.5 max-h-[70px] overflow-y-auto font-mono text-gray-400">
+                                  {Object.entries(order.formData).map(([key, val]) => {
+                                    const isFile = typeof val === 'string' && val.startsWith('data:');
+                                    return (
+                                      <div key={key} className="truncate">
+                                        <span className="text-gray-500 uppercase">{key}:</span>{" "}
+                                        {isFile ? <span className="text-purple-350 underline">[Uploaded file]</span> : String(val)}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Buttons and actions */}
+                            <div className="border-t border-white/[0.03] pt-3 flex flex-wrap gap-2 justify-between items-center">
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    if (orderUser) {
+                                      setSelectedUserDetail(orderUser);
+                                    } else {
+                                      setSelectedUserDetail({
+                                        uid: order.userId,
+                                        email: order.userEmail,
+                                        username: order.paymentProofName || "Guest",
+                                        role: 'user',
+                                        phone: order.paymentProofPhone,
+                                        createdAt: order.createdAt
+                                      });
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[9px] text-purple-400 bg-purple-500/10 px-2 py-1 rounded cursor-pointer"
+                                >
+                                  <User size={10} /> View Profile
+                                </button>
+                                {order.paymentProofScreenshot && (
+                                  <button 
+                                    onClick={() => setPreviewOrder(order)}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-[9px] text-purple-400 bg-purple-500/10 rounded cursor-pointer"
+                                  >
+                                    <Eye size={10} /> Inspect
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="w-full sm:w-auto mt-2 sm:mt-0">
+                                {order.status === "pending" && (
+                                  <div className="grid grid-cols-3 gap-1.5 w-full">
+                                    <button
+                                      onClick={() => handleProcessAction(order.id, order.serviceTitle)}
+                                      className="text-center py-1 bg-blue-600 text-white font-bold rounded text-[9px] cursor-pointer"
+                                    >
+                                      Process
+                                    </button>
+                                    <button
+                                      onClick={() => handleApproveAction(order.id, order.serviceTitle)}
+                                      className="text-center py-1 bg-green-500 text-black font-extrabold rounded text-[9px] cursor-pointer"
+                                    >
+                                      Approve
+                                    </button>
                                     <button
                                       onClick={() => {
-                                        if (orderUser) {
-                                          setSelectedUserDetail(orderUser);
-                                        } else {
-                                          setSelectedUserDetail({
-                                            uid: order.userId,
-                                            email: order.userEmail,
-                                            username: order.paymentProofName || "Guest",
-                                            role: 'user',
-                                            phone: order.paymentProofPhone,
-                                            createdAt: order.createdAt
-                                          });
-                                        }
+                                        setRejectingOrder(order);
+                                        setRejectionReasonInput("");
                                       }}
-                                      className="inline-flex items-center gap-1 mt-1 text-[10px] text-purple-400 hover:text-purple-300 cursor-pointer font-medium hover:underline bg-purple-500/10 px-2 py-0.5 rounded"
+                                      className="text-center py-1 bg-rose-500/10 text-rose-400 font-semibold rounded text-[9px] cursor-pointer"
                                     >
-                                      <User size={10} /> View Profile details
+                                      Reject
                                     </button>
                                   </div>
-                                </td>
-
-                                {/* 2. Package & Custom Form responses */}
-                                <td className="p-4">
-                                  <div className="space-y-1.5 max-w-[280px]">
-                                    <div className="flex flex-col">
-                                      <span className="font-bold text-purple-400 text-xs">{order.serviceTitle}</span>
-                                      <span className="text-[10px] font-mono text-slate-500">{formatPrice(order.price)}</span>
-                                    </div>
-                                    
-                                    {/* Compact list of form responses */}
-                                    {formDataCount > 0 ? (
-                                      <div className="p-2 rounded-lg bg-white/[0.01] border border-white/5 space-y-1 text-[10.5px]">
-                                        <div className="flex justify-between items-center text-[9px] font-mono text-gray-500 uppercase border-b border-white/[0.03] pb-1">
-                                          <span>Custom form inputs</span>
-                                          <span className="text-purple-400">({formDataCount} fields)</span>
-                                        </div>
-                                        <div className="space-y-1 max-h-[85px] overflow-y-auto font-mono text-gray-400 pr-1">
-                                          {Object.entries(order.formData).map(([key, val]) => {
-                                            const isFile = typeof val === 'string' && val.startsWith('data:');
-                                            return (
-                                              <div key={key} className="truncate text-[10px]">
-                                                <span className="text-gray-500 font-semibold uppercase">{key}:</span>{" "}
-                                                {isFile ? <span className="text-purple-300 underline">[Uploaded file]</span> : String(val)}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <span className="text-[10px] text-gray-650 italic font-mono block">No extra details submitted</span>
-                                    )}
-
-                                    <button 
-                                      onClick={() => setPreviewOrder(order)}
-                                      className="inline-flex items-center gap-1 text-[9.5px] text-purple-400 hover:underline cursor-pointer"
+                                )}
+                                {order.status === "processing" && (
+                                  <div className="grid grid-cols-2 gap-1.5 w-full">
+                                    <button
+                                      onClick={() => handleApproveAction(order.id, order.serviceTitle)}
+                                      className="text-center py-1 bg-green-500 text-black font-extrabold rounded text-[9px] cursor-pointer"
                                     >
-                                      <ClipboardList size={11} /> Open full forms & files view
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setRejectingOrder(order);
+                                        setRejectionReasonInput("");
+                                      }}
+                                      className="text-center py-1 bg-rose-500/10 text-rose-400 font-semibold rounded text-[9px] cursor-pointer"
+                                    >
+                                      Reject
                                     </button>
                                   </div>
-                                </td>
+                                )}
+                                {order.status === "rejected" && (
+                                  <p className="text-[9.5px] text-rose-400 italic font-mono">Reason: {order.rejectionReason}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
 
-                                {/* 3. Transaction ID Referral */}
-                                <td className="p-4">
-                                  <span className="font-mono text-white text-xs select-all bg-white/5 px-2 py-1 rounded border border-white/5 block w-fit">
-                                    {order.paymentProofTxId || 'NO_HASH_CODE'}
-                                  </span>
-                                </td>
+                    {/* Desktop Table (hidden on mobile, visible on md+) */}
+                    <div className="hidden md:block glass-panel border-white/5 rounded-2xl overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left font-sans">
+                          <thead>
+                            <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] font-mono text-gray-550 tracking-wider uppercase">
+                              <th className="p-4">Client profile & link</th>
+                              <th className="p-4">Package & Custom Form responses</th>
+                              <th className="p-4">Payment TxID</th>
+                              <th className="p-4">Screenshots</th>
+                              <th className="p-4">Op Status</th>
+                              <th className="p-4">Process Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5 text-xs text-gray-300">
+                            {filteredOrders.slice().reverse().map(order => {
+                              const orderUser = users.find(u => u.uid === order.userId || u.email === order.userEmail);
+                              const formDataCount = order.formData ? Object.keys(order.formData).length : 0;
 
-                                {/* 4. Document screenshot */}
-                                <td className="p-4">
-                                  {order.paymentProofScreenshot ? (
-                                    <div className="flex items-center gap-1.5">
-                                      <button 
-                                        onClick={() => setPreviewOrder(order)}
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/15 rounded-lg border border-purple-500/20 cursor-pointer transition-all"
+                              return (
+                                <motion.tr 
+                                  key={order.id} 
+                                  layout
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -10 }}
+                                  transition={{ duration: 0.25 }}
+                                  className="hover:bg-white/[0.01] transition-colors"
+                                >
+                                  
+                                  {/* 1. Client profile & Link */}
+                                  <td className="p-4">
+                                    <div className="space-y-1">
+                                      <span className="block font-bold text-white hover:text-purple-400 transition-colors uppercase tracking-tight">
+                                        {order.paymentProofName || orderUser?.username || "Guest Customer"}
+                                      </span>
+                                      <span className="block text-[10.5px] text-gray-450 font-mono truncate max-w-[150px]">{order.userEmail}</span>
+                                      {order.paymentProofPhone && (
+                                        <span className="block text-[10px] font-mono text-gray-500">{order.paymentProofPhone}</span>
+                                      )}
+                                      <button
+                                        onClick={() => {
+                                          if (orderUser) {
+                                            setSelectedUserDetail(orderUser);
+                                          } else {
+                                            setSelectedUserDetail({
+                                              uid: order.userId,
+                                              email: order.userEmail,
+                                              username: order.paymentProofName || "Guest",
+                                              role: 'user',
+                                              phone: order.paymentProofPhone,
+                                              createdAt: order.createdAt
+                                            });
+                                          }
+                                        }}
+                                        className="inline-flex items-center gap-1 mt-1 text-[10px] text-purple-400 hover:text-purple-300 cursor-pointer font-medium hover:underline bg-purple-500/10 px-2 py-0.5 rounded"
                                       >
-                                        <Eye size={11} /> Inspect Page
+                                        <User size={10} /> View Profile details
                                       </button>
                                     </div>
-                                  ) : (
-                                    <span className="text-[10px] text-gray-550 italic font-mono">No Slip Uploaded</span>
-                                  )}
-                                </td>
+                                  </td>
 
-                                {/* 5. Operational Status */}
-                                <td className="p-4 font-mono">
-                                  <AnimatePresence mode="wait">
-                                    <motion.div
-                                      key={order.status}
-                                      initial={{ opacity: 0, scale: 0.6 }}
-                                      animate={{ opacity: 1, scale: 1 }}
-                                      exit={{ opacity: 0, scale: 0.6 }}
-                                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                    >
-                                      <span className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase tracking-wider block w-fit ${
-                                        order.status === 'approved' ? 'bg-green-500/10 text-green-400 border border-green-500/10' :
-                                        order.status === 'processing' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/10' :
-                                        order.status === 'rejected' ? 'bg-rose-500/10 text-rose-450 border border-rose-550/15' : 
-                                        'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                                      }`}>
-                                        {order.status === 'approved' ? 'Successful' : order.status}
-                                      </span>
-                                    </motion.div>
-                                  </AnimatePresence>
-                                </td>
+                                  {/* 2. Package & Custom Form responses */}
+                                  <td className="p-4">
+                                    <div className="space-y-1.5 max-w-[280px]">
+                                      <div className="flex flex-col">
+                                        <span className="font-bold text-purple-400 text-xs">{order.serviceTitle}</span>
+                                        <span className="text-[10px] font-mono text-slate-500">{formatPrice(order.price)}</span>
+                                      </div>
+                                      
+                                      {/* Compact list of form responses */}
+                                      {formDataCount > 0 ? (
+                                        <div className="p-2 rounded-lg bg-white/[0.01] border border-white/5 space-y-1 text-[10.5px]">
+                                          <div className="flex justify-between items-center text-[9px] font-mono text-gray-500 uppercase border-b border-white/[0.03] pb-1">
+                                            <span>Custom form inputs</span>
+                                            <span className="text-purple-400">({formDataCount} fields)</span>
+                                          </div>
+                                          <div className="space-y-1 max-h-[85px] overflow-y-auto font-mono text-gray-400 pr-1">
+                                            {Object.entries(order.formData).map(([key, val]) => {
+                                              const isFile = typeof val === 'string' && val.startsWith('data:');
+                                              return (
+                                                <div key={key} className="truncate text-[10px]">
+                                                  <span className="text-gray-500 font-semibold uppercase">{key}:</span>{" "}
+                                                  {isFile ? <span className="text-purple-300 underline">[Uploaded file]</span> : String(val)}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <span className="text-[10px] text-gray-650 italic font-mono block">No extra details submitted</span>
+                                      )}
 
-                                {/* 6. Decision Controllers */}
-                                <td className="p-4">
-                                  <div className="min-w-[130px]">
+                                      <button 
+                                        onClick={() => setPreviewOrder(order)}
+                                        className="inline-flex items-center gap-1 text-[9.5px] text-purple-400 hover:underline cursor-pointer"
+                                      >
+                                        <ClipboardList size={11} /> Open full forms & files view
+                                      </button>
+                                    </div>
+                                  </td>
+
+                                  {/* 3. Transaction ID Referral */}
+                                  <td className="p-4">
+                                    <span className="font-mono text-white text-xs select-all bg-white/5 px-2 py-1 rounded border border-white/5 block w-fit">
+                                      {order.paymentProofTxId || 'NO_HASH_CODE'}
+                                    </span>
+                                  </td>
+
+                                  {/* 4. Document screenshot */}
+                                  <td className="p-4">
+                                    {order.paymentProofScreenshot ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <button 
+                                          onClick={() => setPreviewOrder(order)}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/15 rounded-lg border border-purple-500/20 cursor-pointer transition-all"
+                                        >
+                                          <Eye size={11} /> Inspect Page
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-gray-550 italic font-mono">No Slip Uploaded</span>
+                                    )}
+                                  </td>
+
+                                  {/* 5. Operational Status */}
+                                  <td className="p-4 font-mono">
                                     <AnimatePresence mode="wait">
                                       <motion.div
                                         key={order.status}
-                                        initial={{ opacity: 0, scale: 0.85 }}
+                                        initial={{ opacity: 0, scale: 0.6 }}
                                         animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.85 }}
-                                        transition={{ duration: 0.22, ease: "easeOut" }}
-                                        className="space-y-1.5"
+                                        exit={{ opacity: 0, scale: 0.6 }}
+                                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
                                       >
-                                        
-                                        {/* Action button states based on status */}
-                                        {order.status === "pending" && (
-                                          <div className="flex flex-col gap-1.5">
-                                            <motion.button
-                                              whileHover={{ scale: 1.03 }}
-                                              whileTap={{ scale: 0.97 }}
-                                              onClick={() => handleProcessAction(order.id, order.serviceTitle)}
-                                              className="w-full text-center h-7 px-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded text-[10px] cursor-pointer transition-colors"
-                                            >
-                                              Start Process
-                                            </motion.button>
-                                            <motion.button
-                                              whileHover={{ scale: 1.03 }}
-                                              whileTap={{ scale: 0.97 }}
-                                              onClick={() => handleApproveAction(order.id, order.serviceTitle)}
-                                              className="w-full text-center h-7 px-2 bg-green-500 hover:bg-green-400 text-black font-extrabold rounded text-[10px] cursor-pointer transition-colors"
-                                            >
-                                              Successful
-                                            </motion.button>
-                                            <motion.button
-                                              whileHover={{ scale: 1.03 }}
-                                              whileTap={{ scale: 0.97 }}
-                                              onClick={() => {
-                                                setRejectingOrder(order);
-                                                setRejectionReasonInput("");
-                                              }}
-                                              className="w-full text-center h-7 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold rounded text-[10px] cursor-pointer transition-colors"
-                                            >
-                                              Reject Payment
-                                            </motion.button>
-                                          </div>
-                                        )}
-
-                                        {order.status === "processing" && (
-                                          <div className="flex flex-col gap-1.5">
-                                            <motion.button
-                                              whileHover={{ scale: 1.03 }}
-                                              whileTap={{ scale: 0.97 }}
-                                              onClick={() => handleApproveAction(order.id, order.serviceTitle)}
-                                              className="w-full text-center h-7 px-2 bg-green-500 hover:bg-green-400 text-black font-extrabold rounded text-[10px] cursor-pointer transition-colors"
-                                            >
-                                              Successful (Complete)
-                                            </motion.button>
-                                            <motion.button
-                                              whileHover={{ scale: 1.03 }}
-                                              whileTap={{ scale: 0.97 }}
-                                              onClick={() => {
-                                                setRejectingOrder(order);
-                                                setRejectionReasonInput("");
-                                              }}
-                                              className="w-full text-center h-7 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold rounded text-[10px] cursor-pointer transition-colors"
-                                            >
-                                              Reject / Direct Cancel
-                                            </motion.button>
-                                          </div>
-                                        )}
-
-                                        {order.status === "rejected" && (
-                                          <div className="space-y-1">
-                                            <p className="text-[10px] text-rose-400 italic line-clamp-2 max-w-[150px]">Reason: {order.rejectionReason}</p>
-                                            <motion.button
-                                              whileHover={{ scale: 1.03 }}
-                                              whileTap={{ scale: 0.97 }}
-                                              onClick={() => handleProcessAction(order.id, order.serviceTitle)}
-                                              className="text-[9px] font-semibold text-blue-400 hover:underline cursor-pointer block"
-                                            >
-                                              Re-evaluate & Processing
-                                            </motion.button>
-                                          </div>
-                                        )}
-
-                                        {order.status === "approved" && (
-                                          <div className="text-[10px] text-green-400 font-medium space-y-1">
-                                            <span>✔ Fully approved successful</span>
-                                            <span className="block text-[9px] font-mono text-gray-500">Verified: {new Date(order.paymentVerifiedAt || order.createdAt).toLocaleDateString()}</span>
-                                          </div>
-                                        )}
-
+                                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase tracking-wider block w-fit ${
+                                          order.status === 'approved' ? 'bg-green-500/10 text-green-400 border border-green-500/10' :
+                                          order.status === 'processing' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/10' :
+                                          order.status === 'rejected' ? 'bg-rose-500/10 text-rose-450 border border-rose-550/15' : 
+                                          'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                        }`}>
+                                          {order.status === 'approved' ? 'Successful' : order.status}
+                                        </span>
                                       </motion.div>
                                     </AnimatePresence>
-                                  </div>
-                                </td>
+                                  </td>
 
-                              </motion.tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                  {/* 6. Decision Controllers */}
+                                  <td className="p-4">
+                                    <div className="min-w-[130px]">
+                                      <AnimatePresence mode="wait">
+                                        <motion.div
+                                          key={order.status}
+                                          initial={{ opacity: 0, scale: 0.85 }}
+                                          animate={{ opacity: 1, scale: 1 }}
+                                          exit={{ opacity: 0, scale: 0.85 }}
+                                          transition={{ duration: 0.22, ease: "easeOut" }}
+                                          className="space-y-1.5"
+                                        >
+                                          
+                                          {/* Action button states based on status */}
+                                          {order.status === "pending" && (
+                                            <div className="flex flex-col gap-1.5">
+                                              <motion.button
+                                                whileHover={{ scale: 1.03 }}
+                                                whileTap={{ scale: 0.97 }}
+                                                onClick={() => handleProcessAction(order.id, order.serviceTitle)}
+                                                className="w-full text-center h-7 px-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded text-[10px] cursor-pointer transition-colors"
+                                              >
+                                                Start Process
+                                              </motion.button>
+                                              <motion.button
+                                                whileHover={{ scale: 1.03 }}
+                                                whileTap={{ scale: 0.97 }}
+                                                onClick={() => handleApproveAction(order.id, order.serviceTitle)}
+                                                className="w-full text-center h-7 px-2 bg-green-500 hover:bg-green-400 text-black font-extrabold rounded text-[10px] cursor-pointer transition-colors"
+                                              >
+                                                Successful
+                                              </motion.button>
+                                              <motion.button
+                                                whileHover={{ scale: 1.03 }}
+                                                whileTap={{ scale: 0.97 }}
+                                                onClick={() => {
+                                                  setRejectingOrder(order);
+                                                  setRejectionReasonInput("");
+                                                }}
+                                                className="w-full text-center h-7 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold rounded text-[10px] cursor-pointer transition-colors"
+                                              >
+                                                Reject Payment
+                                              </motion.button>
+                                            </div>
+                                          )}
+
+                                          {order.status === "processing" && (
+                                            <div className="flex flex-col gap-1.5">
+                                              <motion.button
+                                                whileHover={{ scale: 1.03 }}
+                                                whileTap={{ scale: 0.97 }}
+                                                onClick={() => handleApproveAction(order.id, order.serviceTitle)}
+                                                className="w-full text-center h-7 px-2 bg-green-500 hover:bg-green-400 text-black font-extrabold rounded text-[10px] cursor-pointer transition-colors"
+                                              >
+                                                Successful (Complete)
+                                              </motion.button>
+                                              <motion.button
+                                                whileHover={{ scale: 1.03 }}
+                                                whileTap={{ scale: 0.97 }}
+                                                onClick={() => {
+                                                  setRejectingOrder(order);
+                                                  setRejectionReasonInput("");
+                                                }}
+                                                className="w-full text-center h-7 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold rounded text-[10px] cursor-pointer transition-colors"
+                                              >
+                                                Reject / Direct Cancel
+                                              </motion.button>
+                                            </div>
+                                          )}
+
+                                          {order.status === "rejected" && (
+                                            <div className="space-y-1">
+                                              <p className="text-[10px] text-rose-400 italic line-clamp-2 max-w-[150px]">Reason: {order.rejectionReason}</p>
+                                              <motion.button
+                                                whileHover={{ scale: 1.03 }}
+                                                whileTap={{ scale: 0.97 }}
+                                                onClick={() => handleProcessAction(order.id, order.serviceTitle)}
+                                                className="text-[9px] font-semibold text-blue-400 hover:underline cursor-pointer block"
+                                              >
+                                                Re-evaluate & Processing
+                                              </motion.button>
+                                            </div>
+                                          )}
+
+                                          {order.status === "approved" && (
+                                            <div className="text-[10px] text-green-400 font-medium space-y-1">
+                                              <span>✔ Fully approved successful</span>
+                                              <span className="block text-[9px] font-mono text-gray-550">Verified: {new Date(order.paymentVerifiedAt || order.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                          )}
+
+                                        </motion.div>
+                                      </AnimatePresence>
+                                    </div>
+                                  </td>
+
+                                </motion.tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1172,61 +1319,109 @@ export default function AdminDashboard({
                   </div>
                 </div>
 
-                <div className="border border-white/5 rounded-2xl overflow-hidden glass-panel">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left font-sans">
-                      <thead>
-                        <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-                          <th className="p-4">USER ID</th>
-                          <th className="p-4">USERNAME</th>
-                          <th className="p-4">EMAIL ADRESS</th>
-                          <th className="p-4">CLEARANCE ROLE</th>
-                          <th className="p-4">BANNED STATE</th>
-                          <th className="p-4">SECURITY ACTIONS</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 text-xs text-gray-300">
-                        {filteredUsers.map(u => (
-                          <tr key={u.uid} className="hover:bg-white/[0.01] transition-colors">
-                            <td className="p-4 font-mono font-bold text-gray-500">{u.uid}</td>
-                            <td className="p-4 font-semibold text-white">{u.username}</td>
-                            <td className="p-4 font-mono">{u.email}</td>
-                            <td className="p-4 capitalize">
-                              <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-semibold ${u.role === 'admin' ? 'bg-purple-900/40 text-purple-300' : 'bg-white/5 text-gray-400'}`}>
-                                {u.role}
-                              </span>
-                            </td>
-                            <td className="p-4 font-mono">
-                              {u.isBanned ? (
-                                <span className="text-rose-500 font-bold uppercase">● Banned</span>
-                              ) : (
-                                <span className="text-green-500">Active</span>
-                              )}
-                            </td>
-                            <td className="p-4">
-                              <div className="flex flex-wrap gap-2">
-                                <button
-                                  onClick={() => setSelectedUserDetail(u)}
-                                  className="px-3 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border border-purple-500/15"
-                                >
-                                  <User size={10} /> View details
-                                </button>
-                                {u.uid === "admin-default" ? (
-                                  <span className="text-[10px] text-gray-600 self-center font-mono">Immutable</span>
-                                ) : (
-                                  <button
-                                    onClick={() => handleBanToggle(u.uid, u.username, !!u.isBanned)}
-                                    className={`px-3 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${u.isBanned ? 'bg-green-500 text-black' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400'}`}
-                                  >
-                                    <Ban size={10} /> {u.isBanned ? 'Remove Ban' : 'Ban Identity'}
-                                  </button>
-                                )}
-                              </div>
-                            </td>
+                <div className="space-y-4">
+                  {/* Mobile Users Cards List (under md) */}
+                  <div className="grid grid-cols-1 gap-4 md:hidden">
+                    {filteredUsers.map(u => (
+                      <div key={u.uid} className="glass-panel p-4 rounded-xl border-white/5 space-y-3 text-left">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="block font-semibold text-white text-sm">{u.username}</span>
+                            <span className="block text-[11px] font-mono text-gray-400">{u.email}</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-semibold ${u.role === 'admin' ? 'bg-purple-900/40 text-purple-300' : 'bg-white/5 text-gray-400'}`}>
+                            {u.role}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center text-[10px] border-t border-white/[0.03] pt-3">
+                          <span className="font-mono text-gray-500">ID: {u.uid}</span>
+                          <div>
+                            {u.isBanned ? (
+                              <span className="text-rose-500 font-bold uppercase">● Banned</span>
+                            ) : (
+                              <span className="text-green-500">Active</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="border-t border-white/[0.03] pt-3 flex gap-2">
+                          <button
+                            onClick={() => setSelectedUserDetail(u)}
+                            className="flex-1 text-center py-2 rounded text-[10px] font-bold cursor-pointer bg-purple-500/15 text-purple-400"
+                          >
+                            View details
+                          </button>
+                          {u.uid !== "admin-default" && (
+                            <button
+                              onClick={() => handleBanToggle(u.uid, u.username, !!u.isBanned)}
+                              className={`flex-1 text-center py-2 rounded text-[10px] font-bold cursor-pointer ${u.isBanned ? 'bg-green-500 text-black' : 'bg-rose-500/10 text-rose-400'}`}
+                            >
+                              {u.isBanned ? 'Remove Ban' : 'Ban Identity'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop Users Table (hidden on mobile, visible on md+) */}
+                  <div className="hidden md:block border border-white/5 rounded-2xl overflow-hidden glass-panel">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left font-sans">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] font-mono text-gray-550 uppercase tracking-widest">
+                            <th className="p-4">USER ID</th>
+                            <th className="p-4">USERNAME</th>
+                            <th className="p-4">EMAIL ADRESS</th>
+                            <th className="p-4">CLEARANCE ROLE</th>
+                            <th className="p-4">BANNED STATE</th>
+                            <th className="p-4">SECURITY ACTIONS</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-xs text-gray-300">
+                          {filteredUsers.map(u => (
+                            <tr key={u.uid} className="hover:bg-white/[0.01] transition-colors">
+                              <td className="p-4 font-mono font-bold text-gray-500">{u.uid}</td>
+                              <td className="p-4 font-semibold text-white">{u.username}</td>
+                              <td className="p-4 font-mono">{u.email}</td>
+                              <td className="p-4 capitalize">
+                                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-semibold ${u.role === 'admin' ? 'bg-purple-900/40 text-purple-300' : 'bg-white/5 text-gray-400'}`}>
+                                  {u.role}
+                                </span>
+                              </td>
+                              <td className="p-4 font-mono">
+                                {u.isBanned ? (
+                                  <span className="text-rose-500 font-bold uppercase">● Banned</span>
+                                ) : (
+                                  <span className="text-green-500">Active</span>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    onClick={() => setSelectedUserDetail(u)}
+                                    className="px-3 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border border-purple-500/15"
+                                  >
+                                    <User size={10} /> View details
+                                  </button>
+                                  {u.uid === "admin-default" ? (
+                                    <span className="text-[10px] text-gray-600 self-center font-mono">Immutable</span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleBanToggle(u.uid, u.username, !!u.isBanned)}
+                                      className={`px-3 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${u.isBanned ? 'bg-green-500 text-black' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400'}`}
+                                    >
+                                      <Ban size={10} /> {u.isBanned ? 'Remove Ban' : 'Ban Identity'}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </motion.div>
