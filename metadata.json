@@ -1,0 +1,8 @@
+{
+  "name": "Guardian Internet",
+  "description": "An advanced, futuristic IT services and elite digital operations platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
